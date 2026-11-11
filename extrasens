@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+RED='\e[31m'
+GREEN='\e[32m'
+RESET='\e[0m'
+
+declare -i step=1
+declare -i hit=0
+declare -i miss=0
+declare -a numbers=()
+
+while :
+do
+    secret=${RANDOM: -1}
+    echo "Step: ${step}"
+
+    while :
+    do
+        read -r -p "Please enter number from 0 to 9 (q - quit): " input
+        case "${input}" in
+            [0-9]) break ;;
+            q) echo "Bye"; exit 0 ;;
+            *) echo "Error! Enter one digit from 0 to 9 or q." ;;
+        esac
+    done
+
+    if (( input == secret )); then
+        echo "Hit! My number: ${secret}"
+        hit+=1
+        numbers+=("${GREEN}${secret}${RESET}")
+    else
+        echo "Miss! My number: ${secret}"
+        miss+=1
+        numbers+=("${RED}${secret}${RESET}")
+    fi
+
+    total=$(( hit + miss ))
+    hit_percent=$(( hit * 100 / total ))
+    miss_percent=$(( 100 - hit_percent ))
+    echo "Hit: ${hit_percent}% Miss: ${miss_percent}%"
+    start=$(( ${#numbers[@]} > 10 ? ${#numbers[@]} - 10 : 0 ))
+    echo -e "Numbers: ${numbers[*]:start}"
+    echo
+    step+=1
+done
