@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+
+usage() {
+    echo "Использование: $0 -d dir_path -n name" >&2
+    exit 1
+}
+
+dir_path=""
+name=""
+
+while getopts ":d:n:" opt; do
+    case $opt in
+        d) dir_path=$OPTARG ;;
+        n) name=$OPTARG ;;
+        :) echo "Ошибка: для опции -$OPTARG нужен аргумент" >&2; usage ;;
+        \?) echo "Ошибка: неизвестная опция -$OPTARG" >&2; usage ;;
+    esac
+done
+
+[[ -z "$dir_path" || -z "$name" ]] && usage
+
+if [[ ! -d "$dir_path" ]]; then
+    echo "Ошибка: каталог '$dir_path' не существует" >&2
+    exit 1
+fi
+
+# 1. Генерируем скрипт-распаковщик в текущем каталоге
+cat > "$name" << 'EOF'
+#!/usr/bin/env bash
+
+out_dir="."
+while getopts ":o:" opt; do
+    case $opt in
+        o) out_dir=$OPTARG ;;
+        *) echo "Использование: $0 [-o unpackdir]" >&2; exit 1 ;;
+    esac
+done
+
+mkdir -p "$out_dir" || exit 1
+
+archive_line=$(( $(grep -an '^__ARCHIVE_BELOW__$' "$0" | cut -d: -f1) + 1 ))
+tail -n +"$archive_line" "$0" | base64 -d | tar -xzf - -C "$out_dir" || exit 1
+echo "Архив распакован в каталог: $out_dir"
+exit 0
+__ARCHIVE_BELOW__
+EOF
+
+# 2-3. Упаковываем каталог в tar.gz и внедряем его в скрипт (в виде base64)
+if ! COPYFILE_DISABLE=1 tar -czf - -C "$dir_path" . | base64 >> "$name"; then
+    echo "Ошибка при создании архива" >&2
+    rm -f "$name"
+    exit 1
+fi
+
+# 4. Право на исполнение для всех пользователей
+chmod a+x "$name"
+
+echo "Создан самораспаковывающийся архив: ./$name"
+exit 0
