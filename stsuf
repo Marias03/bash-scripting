@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+if (( $# != 1 )); then
+    echo "Использование: $0 каталог" >&2
+    exit 1
+fi
+
+dir=$1
+
+if [[ ! -d "$dir" ]]; then
+    echo "Ошибка: '$dir' не является каталогом" >&2
+    exit 1
+fi
+
+# Ассоциативный массив: суффикс -> количество файлов
+declare -A stats=()
+
+while IFS= read -r -d '' path; do
+    name=${path##*/}
+    rest=${name:1}              # точка в начале имени - не начало суффикса
+    if [[ "$rest" == *.* ]]; then
+        key=".${rest##*.}"
+    else
+        key="no suffix"
+    fi
+    stats["$key"]=$(( ${stats["$key"]:-0} + 1 ))
+done < <(find "$dir" -type f -print0)
+
+# Вывод в порядке убывания количества
+for key in "${!stats[@]}"; do
+    printf '%s\t%s\n' "${stats[$key]}" "$key"
+done | sort -t $'\t' -k1,1nr | while IFS=$'\t' read -r cnt key; do
+    echo "${key}: ${cnt}"
+done
+
+exit 0
