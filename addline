@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+if (( $# != 1 )); then
+    echo "Использование: $0 каталог" >&2
+    exit 1
+fi
+
+dir=$1
+
+if [[ ! -d "$dir" ]]; then
+    echo "Ошибка: '$dir' не является каталогом" >&2
+    exit 1
+fi
+
+user_name=$(id -un)
+date_iso=$(date +%F)          # ISO 8601: YYYY-MM-DD
+line="Approved ${user_name} ${date_iso}"
+
+shopt -s nullglob
+
+# for in + Filename Expansion, без рекурсии
+for file in "$dir"/*.txt; do
+    [[ -f "$file" && ! -L "$file" ]] || continue
+
+    tmp=$(mktemp) || exit 1
+    { echo "$line"; cat "$file"; } > "$tmp"
+    cat "$tmp" > "$file"       # сохраняем права и владельца исходного файла
+    rm -f "$tmp"
+
+    echo "Обработан: $file"
+done
+
+exit 0
