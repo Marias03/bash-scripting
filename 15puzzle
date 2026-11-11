@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+declare -a board
+declare -i empty=15
+declare -i moves=1
+msg=""
+
+# Tablero ordenado: 1..15 y 0 = celda vacía
+for i in {0..14}; do board[i]=$(( i + 1 )); done
+board[15]=0
+
+# Índices de las celdas vecinas a la vacía
+neighbors() {
+    local r=$(( empty / 4 )) c=$(( empty % 4 ))
+    (( r > 0 )) && echo $(( empty - 4 ))
+    (( r < 3 )) && echo $(( empty + 4 ))
+    (( c > 0 )) && echo $(( empty - 1 ))
+    (( c < 3 )) && echo $(( empty + 1 ))
+    return 0
+}
+
+# Mueve la ficha del índice $1 a la celda vacía
+move() {
+    board[empty]=${board[$1]}
+    board[$1]=0
+    empty=$1
+}
+
+is_solved() {
+    local i
+    for i in {0..14}; do
+        (( board[i] == i + 1 )) || return 1
+    done
+    return 0
+}
+
+print_board() {
+    local r c v
+    echo "+-------------------+"
+    for r in 0 1 2 3; do
+        for c in 0 1 2 3; do
+            v=${board[r * 4 + c]}
+            (( v == 0 )) && v=""
+            printf "| %2s " "$v"
+        done
+        echo "|"
+        (( r < 3 )) && echo "|-------------------|"
+    done
+    echo "+-------------------+"
+}
+
+# Revolver con movimientos válidos (siempre tiene solución)
+shuffle_steps=${SHUFFLE:-500}
+while is_solved; do
+    for (( s = 0; s < shuffle_steps; s++ )); do
+        n=($(neighbors))
+        move "${n[RANDOM % ${#n[@]}]}"
+    done
+done
+
+while :
+do
+    echo "Ход № ${moves}"
+    print_board
+    if [[ -n "$msg" ]]; then
+        echo -e "$msg"
+        msg=""
+    fi
+
+    read -r -p "Ваш ход (q - выход): " input || exit 1
+    [[ -z "$input" ]] && continue
+    if [[ "$input" == "q" ]]; then
+        echo "Выход."
+        exit 0
+    fi
+
+    valid=()
+    idx=-1
+    for n in $(neighbors); do
+        valid+=("${board[n]}")
+        [[ "$input" == "${board[n]}" ]] && idx=$n
+    done
+
+    if (( idx < 0 )); then
+        list=$(printf '%s, ' "${valid[@]}")
+        msg="\nНеверный ход!\nНевозможно костяшку ${input} передвинуть на пустую ячейку.\nМожно выбрать: ${list%, }\n"
+        continue
+    fi
+
+    move "$idx"
+
+    if is_solved; then
+        echo
+        echo "Вы собрали головоломку за ${moves} ходов."
+        print_board
+        exit 0
+    fi
+
+    moves+=1
+done
